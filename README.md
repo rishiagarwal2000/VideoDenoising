@@ -1,5 +1,5 @@
 # Video Denoising
-A compressed sensing approach to denoise videos.
+A compressed sensing based approach to denoise videos.
 
 We have implemented a paper on robust video denoising. This method works for any noise model.
 There are two important algorithms in this method
