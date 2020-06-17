@@ -13,7 +13,7 @@ rec = zeros(H,W,3,K); count = 0.0001*ones(H,W,3,K); sigma = 10; kappa = 0.4; s =
 for iter = 1:K
     temp = double(read(vid,start+iter-1));
     data(:,:,:,iter) = temp(sx:sx+H-1,sy:sy+W-1,:);
-    measN(:,:,:,iter) = mynoise_with_comments(data(:,:,:,iter),sigma,kappa,s);
+    measN(:,:,:,iter) = mynoise(data(:,:,:,iter),sigma,kappa,s);
     meas(:,:,:,iter) = admedfilt(measN(:,:,:,iter));
 end
 
@@ -23,7 +23,7 @@ for x = 1:H-px+1
     x
     for y = 1:W-py+1
         [mat, loc] = basicPM([x,y,iter],meas,4,5,px,py);
-        svt = fpi_with_comments(mat);
+        svt = fpi(mat);
         for it = 1:5*K
             curx = loc(1,it); cury = loc(2,it); curf = loc(3,it);
             curPat = reshape(svt(:,it),px,py,3);
