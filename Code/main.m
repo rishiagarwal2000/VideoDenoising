@@ -1,51 +1,50 @@
 % Code for running experiments
 clc;clear;
-addpath(genpath('MMread'));
-K = 20;
+K = 5;
 start = 1;
-vid = mmread('../Data/carphone_qcif.y4m', start:start+K, [], false, true);
-H = 32;%vid.height;
-W = 32;%vid.width; 
+vid = VideoReader('../Data/miss_am_qcif.y4m');
+H = 64;
+W = 64;
 px = 8; py = 8;
-rec = zeros(H,W,3,K); count = 0.0001*ones(H,W,3,K); kappa = 0.4;
-%temp1 = vid.frames(4).cdata; temp1 = temp1(50:50+H-1,70:70+W-1,:); imshow(temp1); drawnow;
-%figure;
+sx = 35;%Calender_demo->135;20 
+sy = 55;%Calender_demo->175;20
+rec = zeros(H,W,3,K); count = 0.0001*ones(H,W,3,K); sigma = 10; kappa = 0.4; s = 0.4;   
+
 for iter = 1:K
-    temp = double(vid.frames(iter).cdata);
-    data(:,:,:,iter) = temp(50:50+H-1,70:70+W-1,:); %imshow(data(:,:,:,iter)/255); drawnow; pause(2);
-    meas(:,:,:,iter) = data(:,:,:,iter)+10*randn(H,W,3)+poissrnd(kappa*data(:,:,:,iter),H,W,3)-kappa*data(:,:,:,iter);
+    temp = double(read(vid,start+iter-1));
+    data(:,:,:,iter) = temp(sx:sx+H-1,sy:sy+W-1,:);
+    measN(:,:,:,iter) = mynoise_with_comments(data(:,:,:,iter),sigma,kappa,s);
+    meas(:,:,:,iter) = admedfilt(measN(:,:,:,iter));
 end
 
-%let 5 closest patches in each frame be pre decided.(Work on this algorithm next!!)
-for x = 2:H-px
+%Filter the central frame
+iter = 3;
+for x = 1:H-px+1
     x
-    for y = 2:W-py
-        %p = meas(x:x+px-1,y:y+py-1,:,k);
-        if x > 1 && y > 1
-            A = reshape(meas(x-1:x-1+px-1,y:y+py-1,:,:),3*px*py,K);
-            B = reshape(meas(x+1:x+1+px-1,y:y+py-1,:,:),3*px*py,K);
-            C = reshape(meas(x:x+px-1,y-1:y-1+py-1,:,:),3*px*py,K);
-            D = reshape(meas(x:x+px-1,y+1:y+1+py-1,:,:),3*px*py,K);
-            E = reshape(meas(x:x+px-1,y:y+py-1,:,:),3*px*py,K);
-            mat = [A,B,C,D,E];
-            ans = fpi(mat);
-            %ans = fpi(E);
-            A = ans(:,1:K); B = ans(:,K+1:2*K); C = ans(:,2*K+1:3*K); D = ans(:,3*K+1:4*K); E = ans(:,4*K+1:5*K);
-            rec(x-1:x-1+px-1,y:y+py-1,:,:) = rec(x-1:x-1+px-1,y:y+py-1,:,:) + reshape(A,px,py,3,K);
-            count(x-1:x-1+px-1,y:y+py-1,:,:) = count(x-1:x-1+px-1,y:y+py-1,:,:) + ones(px,py,3,K);
-            rec(x+1:x+1+px-1,y:y+py-1,:,:) = rec(x+1:x+1+px-1,y:y+py-1,:,:) + reshape(B,px,py,3,K);
-            count(x+1:x+1+px-1,y:y+py-1,:,:) = count(x+1:x+1+px-1,y:y+py-1,:,:) + ones(px,py,3,K);
-            rec(x:x+px-1,y-1:y-1+py-1,:,:) = rec(x:x+px-1,y-1:y-1+py-1,:,:) + reshape(C,px,py,3,K);
-            count(x:x+px-1,y-1:y-1+py-1,:,:) = count(x:x+px-1,y-1:y-1+py-1,:,:) + ones(px,py,3,K);
-            rec(x:x+px-1,y+1:y+1+py-1,:,:) = rec(x:x+px-1,y+1:y+1+py-1,:,:) + reshape(D,px,py,3,K);
-            count(x:x+px-1,y+1:y+1+py-1,:,:) = count(x:x+px-1,y+1:y+1+py-1,:,:) + ones(px,py,3,K);
-            rec(x:x+px-1,y:y+py-1,:,:) = rec(x:x+px-1,y:y+py-1,:,:) + reshape(E,px,py,3,K);
-            count(x:x+px-1,y:y+py-1,:,:) = count(x:x+px-1,y:y+py-1,:,:) + ones(px,py,3,K);
+    for y = 1:W-py+1
+        [mat, loc] = basicPM([x,y,iter],meas,4,5,px,py);
+        svt = fpi_with_comments(mat);
+        for it = 1:5*K
+            curx = loc(1,it); cury = loc(2,it); curf = loc(3,it);
+            curPat = reshape(svt(:,it),px,py,3);
+            rec(curx:curx+px-1,cury:cury+py-1,:,curf) = rec(curx:curx+px-1,cury:cury+py-1,:,curf) + curPat;
+            count(curx:curx+px-1,cury:cury+py-1,:,curf) = count(curx:curx+px-1,cury:cury+py-1,:,curf) + ones(px,py,3);
         end
     end
 end
-rec = rec./count;
+recTemp = rec./count;
+
+% Display the images
 figure;
-subplot(3,1,3);imshow(rec(:,:,:,4)/255);
-subplot(3,1,1);imshow(data(:,:,:,4)/255);
-subplot(3,1,2);imshow(meas(:,:,:,4)/255);
+subplot(2,2,1);imshow(measN(:,:,:,iter)/255);title('a')
+subplot(2,2,2);imshow(meas(:,:,:,iter)/255);title('b')
+subplot(2,2,3);imshow(recTemp(:,:,:,iter)/255);title('c')
+subplot(2,2,4);imshow(data(:,:,:,iter)/255);title('d')
+
+% Display the stats
+for_noisy = psnr(measN(:,:,:,1),data(:,:,:,1),255);
+for_med_filt = psnr(meas(:,:,:,1),data(:,:,:,1),255);
+for_fpi = psnr(recTemp(:,:,:,1),data(:,:,:,1),255);
+stats = [for_noisy, for_med_filt, for_fpi]
+drawnow;
+rec = rec./count;
